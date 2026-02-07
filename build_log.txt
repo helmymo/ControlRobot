@@ -1,0 +1,84 @@
+﻿> Task :gradle:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :gradle:compileKotlin UP-TO-DATE
+> Task :gradle:compileJava NO-SOURCE
+> Task :gradle:compileGroovy NO-SOURCE
+> Task :gradle:pluginDescriptors UP-TO-DATE
+> Task :gradle:processResources UP-TO-DATE
+> Task :gradle:classes UP-TO-DATE
+> Task :gradle:jar UP-TO-DATE
+> Task :app:ReleaseMinSdkCheck
+
+> Task :app:compileFlutterBuildRelease
+.\gradlew.bat : 'C:\Users\Monkey' is not 
+recognized as an internal or external command,
+At line:1 char:220
++ ... OME + '\bin;' + $env:PATH; .\gradlew.bat 
+assembleRelease 2>&1 | Out-F ...
++                                
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ('C: 
+   \Users\Monke...ternal command,:String) [], R  
+  emoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+operable program or batch file.
+
+Building native assets for package:objective_c 
+failed.
+Compilation of hook returned with exit code: 1.
+To reproduce run:
+C:\Users\Monkey Nerd\Downloads\New 
+folder\tools\flutter\bin\cache\dart-sdk\bin\dart 
+compile kernel '--packages=C:\Users\Monkey 
+Nerd\Downloads\New 
+folder\test_app\.dart_tool\package_config.json' 
+'--output=C:\Users\Monkey Nerd\Downloads\New fold
+er\test_app\.dart_tool\hooks_runner\objective_c\d
+1e88c8cf118f390fcd94f41af0f2479\hook.dill' 
+'--depfile=C:\Users\Monkey Nerd\Downloads\New fol
+der\test_app\.dart_tool\hooks_runner\objective_c\
+d1e88c8cf118f390fcd94f41af0f2479\hook.dill.d' 
+'C:\Users\Monkey Nerd\AppData\Local\Pub\Cache\hos
+ted\pub.dev\objective_c-9.3.0\hook\build.dart'
+stderr:
+'C:\Users\Monkey' is not recognized as an 
+internal or external command,
+operable program or batch file.
+
+stdout:
+
+
+Target dart_build failed: Error: Building native 
+assets failed. See the logs for more details.
+
+
+> Task :app:compileFlutterBuildRelease FAILED
+
+[Incubating] Problems report is available at: file:///C:/Users/Monkey%20Nerd/Downloads/New%20folder/test_app/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task 
+':app:compileFlutterBuildRelease'.
+> Process 'command 'C:\Users\Monkey 
+Nerd\Downloads\New 
+folder\tools\flutter\bin\flutter.bat'' finished 
+with non-zero exit value 1
+
+* Try:
+> Run with --stacktrace option to get the stack 
+trace.
+> Run with --info or --debug option to get more 
+log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.14/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD FAILED in 8s
+6 actionable tasks: 2 executed, 4 up-to-date
