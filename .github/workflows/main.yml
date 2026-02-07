@@ -1,41 +1,34 @@
-name: Build Sideloadable IPA
+name: Build iOS IPA for Sideloading
 
 on:
+  workflow_dispatch: # Allows you to run it manually from the Actions tab
   push:
     branches: [ "main" ]
-  workflow_dispatch:
 
 jobs:
   build:
-    name: Build Sideload IPA
     runs-on: macos-latest
-
     steps:
       - uses: actions/checkout@v4
-
+      
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.27.0'
           channel: 'stable'
-          cache: true
+          
+      - run: flutter pub get
+      
+      # 1. Build for Real Device (ARM64) without signing
+      - run: flutter build ios --release --no-codesign
 
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Build iOS App (Release, No Codesign)
-        # Builds for ARM64 (Real Device) by default on macos-latest
-        run: flutter build ios --release --no-codesign
-
-      - name: Package IPA for Sideloadly
-        # Create strict Payload structure required by Sideloadly
+      # 2. Create the strict Payload structure Sideloadly needs
+      - name: Create IPA
         run: |
-          mkdir -p Payload
-          mv build/ios/iphoneos/Runner.app Payload/
-          zip -r app.ipa Payload
+          mkdir Payload
+          mv build/ios/iphoneos/Runner.app Payload
+          zip -r release.ipa Payload
 
-      - name: Upload IPA
-        uses: actions/upload-artifact@v4
+      # 3. Upload the IPA for you to download
+      - uses: actions/upload-artifact@v4
         with:
-          name: app.ipa
-          path: app.ipa
-          retention-days: 5
+          name: app-release
+          path: release.ipa
