@@ -1,11 +1,13 @@
-name: Build iOS for Sideloading
+name: Build Clean iOS IPA
 
 on:
-  workflow_dispatch: # Allows you to manually trigger the build
+  workflow_dispatch: # Manual trigger
+  push:
+    branches: [ "main" ]
 
 jobs:
   build:
-    name: Build IPA
+    name: Build Clean IPA
     runs-on: macos-latest
     steps:
       - name: Checkout Code
@@ -16,28 +18,33 @@ jobs:
         with:
           channel: 'stable'
           architecture: x64
-
+      
       - name: Install Dependencies
         run: flutter pub get
 
-      # 1. Build for Real Device (ARM64)
-      # --release: Targets real iPhone chips (Fixes "Verification Failed" error)
-      # --no-codesign: Builds without needing a paid Apple account
+      - name: Clean Build Cache
+        run: flutter clean
+
+      # 1. Remove Entitlements (Fixes "Verification Failed")
+      # This deletes the file that requests iCloud/Push/etc, which breaks free accounts.
+      - name: Remove Pro Entitlements
+        run: rm -f ios/Runner/Runner.entitlements
+
+      # 2. Build for Real Device (ARM64)
       - name: Build iOS App
         run: flutter build ios --release --no-codesign
 
-      # 2. Fix IPA Structure
-      # Sideloadly CRASHES if the app isn't inside a folder named 'Payload'
-      - name: Prepare IPA Structure
+      # 3. Package "Clean" IPA (Fixes "Guru Meditation")
+      # -X removes hidden Mac metadata (._ files) that crash Sideloadly
+      - name: Create Clean IPA
         run: |
-          mkdir -p Payload
-          mv build/ios/iphoneos/Runner.app Payload/
-          zip -r app.ipa Payload
+          mkdir Payload
+          mv build/ios/iphoneos/Runner.app Payload
+          zip -r -X app.ipa Payload
 
-      # 3. Upload the IPA for you to download
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: Sideload-Ready-IPA
+          name: Clean-IPA
           path: app.ipa
           retention-days: 1
