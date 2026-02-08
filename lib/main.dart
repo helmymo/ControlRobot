@@ -619,6 +619,13 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
 // ============================================================================
 // COCKPIT SCREEN - Robot Control Dashboard
 // ============================================================================
+class CustomButtonData {
+  String label;
+  String command;
+
+  CustomButtonData({required this.label, required this.command});
+}
+
 class CockpitScreen extends StatefulWidget {
   final BleService bleService;
   final String deviceName;
@@ -641,6 +648,18 @@ class _CockpitScreenState extends State<CockpitScreen> {
   bool _lightsOn = false;
   int _speedMode = 1;
   bool _gripperOpen = true;
+
+  // Terminal state
+  bool _showTerminal = false;
+  final List<String> _terminalLogs = [];
+  final ScrollController _terminalScrollController = ScrollController();
+
+  // Custom Buttons State
+  List<CustomButtonData> _customButtons = [
+    CustomButtonData(label: 'BTN 1', command: 'CMD1'),
+    CustomButtonData(label: 'BTN 2', command: 'CMD2'),
+    CustomButtonData(label: 'BTN 3', command: 'CMD3'),
+  ];
 
   // Throttle timer for joystick (100ms)
   Timer? _sendTimer;
@@ -671,21 +690,41 @@ class _CockpitScreenState extends State<CockpitScreen> {
   /// Central helper function to write data to BLE characteristic
   Future<void> writeData(String data) async {
     if (!_isConnected) {
-      debugPrint('BLE: Not connected, cannot send data');
+      _logToTerminal('Error: Not connected');
       return;
     }
     
     try {
-      // Encode string to UTF8 and send
-      final bytes = utf8.encode(data);
       await widget.bleService.sendData(data);
-      debugPrint('BLE Send: $data');
+      _logToTerminal('TX: ${data.trim()}');
     } catch (e) {
-      debugPrint('BLE Send Error: $e');
+      _logToTerminal('Error: $e');
       setState(() {
         _isConnected = false;
       });
     }
+  }
+
+  void _logToTerminal(String message) {
+    if (!mounted) return;
+    setState(() {
+      _terminalLogs.add(message);
+      // Keep only last 50 logs
+      if (_terminalLogs.length > 50) {
+        _terminalLogs.removeAt(0);
+      }
+    });
+
+    // Auto-scroll to bottom
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_terminalScrollController.hasClients) {
+        _terminalScrollController.animateTo(
+          _terminalScrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 100),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   void _sendJoystickData() {
@@ -718,19 +757,62 @@ class _CockpitScreenState extends State<CockpitScreen> {
   }
 
   // Action buttons
-  void _onDigPressed() {
+  void _onCustomButtonPressed(int index) {
     HapticFeedback.mediumImpact();
-    writeData('D,1\n');
+    final btn = _customButtons[index];
+    writeData('${btn.command}\n');
   }
 
-  void _onStopPressed() {
+  void _onCustomButtonLongPress(int index) {
     HapticFeedback.heavyImpact();
-    writeData('S\n');
+    _showEditButtonDialog(index);
   }
 
-  void _onResetArmPressed() {
-    HapticFeedback.mediumImpact();
-    writeData('A,0,0,-15\n');
+  void _showEditButtonDialog(int index) {
+    final btn = _customButtons[index];
+    final labelController = TextEditingController(text: btn.label);
+    final cmdController = TextEditingController(text: btn.command);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.grey[900],
+        title: Text('Edit Button ${index + 1}', style: const TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: labelController,
+              decoration: const InputDecoration(labelText: 'Label', labelStyle: TextStyle(color: Colors.grey)),
+              style: const TextStyle(color: Colors.white),
+            ),
+            TextField(
+              controller: cmdController,
+              decoration: const InputDecoration(labelText: 'Command', labelStyle: TextStyle(color: Colors.grey)),
+              style: const TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _customButtons[index] = CustomButtonData(
+                  label: labelController.text,
+                  command: cmdController.text,
+                );
+              });
+              Navigator.pop(context);
+            },
+            child: const Text('Save', style: TextStyle(color: Color(0xFF00FFFF))),
+          ),
+        ],
+      ),
+    );
   }
 
   void _toggleLights() {
@@ -777,6 +859,26 @@ class _CockpitScreenState extends State<CockpitScreen> {
         ),
         centerTitle: true,
         actions: [
+        actions: [
+          IconButton(
+            icon: Icon(_showTerminal ? Icons.terminal : Icons.terminal_outlined, 
+              color: _showTerminal ? const Color(0xFF39FF14) : Colors.grey),
+            onPressed: () {
+              setState(() {
+                _showTerminal = !_showTerminal;
+              });
+            },
+          ),
+        actions: [
+          IconButton(
+            icon: Icon(_showTerminal ? Icons.terminal : Icons.terminal_outlined, 
+              color: _showTerminal ? const Color(0xFF39FF14) : Colors.grey),
+            onPressed: () {
+              setState(() {
+                _showTerminal = !_showTerminal;
+              });
+            },
+          ),
           _buildConnectionIndicator(),
           const SizedBox(width: 12),
         ],
@@ -860,37 +962,45 @@ class _CockpitScreenState extends State<CockpitScreen> {
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    // DIG Button (Green)
-                    Expanded(
-                      child: _buildControlButton(
-                        label: 'DIG',
-                        color: const Color(0xFF39FF14),
-                        onPressed: _onDigPressed,
+                    for (int i = 0; i < 3; i++) ...[
+                      if (i > 0) const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildControlButton(
+                          label: _customButtons[i].label,
+                          color: const Color(0xFF2196F3),
+                          onPressed: () => _onCustomButtonPressed(i),
+                          onLongPress: () => _onCustomButtonLongPress(i),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    // STOP Button (Red, larger)
-                    Expanded(
-                      flex: 2,
-                      child: _buildControlButton(
-                        label: 'STOP',
-                        color: Colors.red,
-                        onPressed: _onStopPressed,
-                        isLarge: true,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    // RESET ARM Button (Blue)
-                    Expanded(
-                      child: _buildControlButton(
-                        label: 'RESET\nARM',
-                        color: const Color(0xFF2196F3),
-                        onPressed: _onResetArmPressed,
-                      ),
-                    ),
+                    ],
                   ],
                 ),
               ),
+
+              // TERMINAL OVERLAY
+              if (_showTerminal)
+                Container(
+                  height: 150,
+                  width: double.infinity,
+                  color: Colors.black.withOpacity(0.9),
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    border: Border(top: BorderSide(color: Color(0xFF39FF14), width: 1)),
+                  ),
+                  child: ListView.builder(
+                    controller: _terminalScrollController,
+                    itemCount: _terminalLogs.length,
+                    itemBuilder: (context, index) {
+                      return Text(
+                        _terminalLogs[index],
+                        style: GoogleFonts.sourceCodePro(
+                          color: const Color(0xFF39FF14),
+                          fontSize: 10,
+                        ),
+                      );
+                    },
+                  ),
+                ),
             ],
           ),
         ),
@@ -1056,37 +1166,31 @@ class _CockpitScreenState extends State<CockpitScreen> {
     required String label,
     required Color color,
     required VoidCallback onPressed,
+    VoidCallback? onLongPress,
     bool isLarge = false,
   }) {
     return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        height: isLarge ? 70 : 60,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [color, color.withOpacity(0.7)],
+      onLongPress: onLongPress,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color.withOpacity(0.2),
+          foregroundColor: color,
+          padding: EdgeInsets.symmetric(vertical: isLarge ? 24 : 16),
+          side: BorderSide(color: color, width: 2),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.4),
-              blurRadius: 12,
-              spreadRadius: 1,
-            ),
-          ],
+          elevation: 0,
+          shadowColor: color.withOpacity(0.5),
         ),
-        child: Center(
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.orbitron(
-              color: Colors.white,
-              fontSize: isLarge ? 18 : 12,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1,
-            ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.orbitron(
+            fontSize: isLarge ? 18 : 12,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.5,
           ),
         ),
       ),
