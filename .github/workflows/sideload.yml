@@ -1,0 +1,59 @@
+name: Build Clean IPA for Sideloadly
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build-ipa:
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Step 1: Clean Build
+      - name: Clean build artifacts
+        run: flutter clean
+
+      - name: Re-install dependencies after clean
+        run: flutter pub get
+
+      # Step 2: Build Release (unsigned)
+      - name: Build iOS Release (no codesign)
+        run: flutter build ios --release --no-codesign
+
+      # Step 3: Nuclear Cleanup - Remove PlugIns and Watch folders
+      - name: Remove PlugIns folder (fixes Sideloadly crash)
+        run: rm -rf build/ios/iphoneos/Runner.app/PlugIns
+
+      - name: Remove Watch folder (fixes Sideloadly crash)
+        run: rm -rf build/ios/iphoneos/Runner.app/Watch
+
+      # Step 4: Package as IPA
+      - name: Create Payload directory
+        run: mkdir -p Payload
+
+      - name: Move Runner.app to Payload
+        run: mv build/ios/iphoneos/Runner.app Payload/
+
+      - name: Create IPA archive
+        run: zip -r app.ipa Payload
+
+      # Step 5: Upload Artifact
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-ipa
+          path: app.ipa
+          retention-days: 30
