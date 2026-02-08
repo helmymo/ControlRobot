@@ -13,6 +13,8 @@ import 'settings_screen.dart';
 // CONFIGURATION - Change these UUIDs to match your ESP32
 // ============================================================================
 class BleConfig {
+  // Your ESP32's Service UUID (used for filtering)
+  static const String serviceUuid = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
   // Your ESP32's Characteristic UUID (the characteristic you write data to)
   static const String characteristicUuid = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
 }
@@ -486,6 +488,35 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
     );
   }
 
+  bool _isMyEsp(BleDeviceInfo device) {
+    // Check by Service UUID first (most reliable)
+    if (device.serviceUuids.any((uuid) =>
+        uuid.toLowerCase() == BleConfig.serviceUuid.toLowerCase())) {
+      return true;
+    }
+
+    // Fallback: Check by name
+    final name = device.name.toLowerCase();
+    return name.contains('esp32') ||
+           name.contains('robot') ||
+           name.contains('omar');
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Text(
+        title,
+        style: GoogleFonts.orbitron(
+          color: const Color(0xFF00FFFF),
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 2,
+        ),
+      ),
+    );
+  }
+
   Widget _buildDeviceList() {
     if (_scanResults.isEmpty && !_isScanning) {
       return Center(
@@ -511,13 +542,23 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
       );
     }
 
-    return ListView.builder(
+    // Separate devices
+    final myDevices = _scanResults.where((d) => _isMyEsp(d)).toList();
+    final otherDevices = _scanResults.where((d) => !_isMyEsp(d)).toList();
+
+    return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: _scanResults.length,
-      itemBuilder: (context, index) {
-        final device = _scanResults[index];
-        return _buildDeviceCard(device);
-      },
+      children: [
+        if (myDevices.isNotEmpty) ...[
+          _buildSectionHeader('MY ROBOT'),
+          ...myDevices.map((d) => _buildDeviceCard(d)),
+        ],
+
+        if (otherDevices.isNotEmpty) ...[
+          _buildSectionHeader('OTHER DEVICES'),
+          ...otherDevices.map((d) => _buildDeviceCard(d)),
+        ],
+      ],
     );
   }
 

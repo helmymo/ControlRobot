@@ -7,12 +7,14 @@ class BleDeviceInfo {
   final String name;
   final String id;
   final int rssi;
+  final List<String> serviceUuids;
   final BluetoothDevice? nativeDevice;
 
   BleDeviceInfo({
     required this.name,
     required this.id,
     required this.rssi,
+    this.serviceUuids = const [],
     this.nativeDevice,
   });
 }
@@ -49,6 +51,7 @@ class MockBleService implements BleService {
         name: 'ESP32-Robot (Mock)',
         id: 'AA:BB:CC:DD:EE:FF',
         rssi: -45,
+        serviceUuids: ['4fafc201-1fb5-459e-8fcc-c5c9c331914b'],
       ),
     ];
     await Future.delayed(const Duration(milliseconds: 500));
@@ -57,6 +60,7 @@ class MockBleService implements BleService {
         name: 'ESP32-Robot (Mock)',
         id: 'AA:BB:CC:DD:EE:FF',
         rssi: -45,
+        serviceUuids: ['4fafc201-1fb5-459e-8fcc-c5c9c331914b'],
       ),
       BleDeviceInfo(
         name: 'ESP32-Tank (Mock)',
@@ -158,6 +162,7 @@ class RealBleService implements BleService {
               name: deviceName,
               id: result.device.remoteId.str,
               rssi: result.rssi,
+              serviceUuids: result.advertisementData.serviceUuids.map((uuid) => uuid.toString()).toList(),
               nativeDevice: result.device,
             ));
           }
