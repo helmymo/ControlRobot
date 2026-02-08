@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 /// Device info for display
 class BleDeviceInfo {
@@ -148,6 +149,20 @@ class RealBleService implements BleService {
         }
       }
       
+      
+      // Request permissions clearly and explicitly
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        // Android 12+ needs BLUETOOTH_SCAN and BLUETOOTH_CONNECT
+        // Android <12 needs LOCATION
+        Map<Permission, PermissionStatus> statuses = await [
+          Permission.bluetoothScan,
+          Permission.bluetoothConnect,
+          Permission.location,
+        ].request();
+        
+        debugPrint('BLE Permissions: $statuses');
+      }
+
       // Stop any previous scan
       await FlutterBluePlus.stopScan();
       
@@ -157,15 +172,20 @@ class RealBleService implements BleService {
         
         for (final result in results) {
           final deviceName = result.device.platformName;
-          if (deviceName.isNotEmpty) {
-            _discoveredDevices.add(BleDeviceInfo(
-              name: deviceName,
-              id: result.device.remoteId.str,
-              rssi: result.rssi,
-              serviceUuids: result.advertisementData.serviceUuids.map((uuid) => uuid.toString()).toList(),
-              nativeDevice: result.device,
-            ));
-          }
+          final remoteId = result.device.remoteId.str;
+          final serviceUuids = result.advertisementData.serviceUuids.map((uuid) => uuid.toString()).toList();
+          
+          // Debug log every single device found
+          debugPrint('BLE FOUND: "$deviceName" ($remoteId) RSSI: ${result.rssi} UUIDs: $serviceUuids');
+
+          // Always add device, even if name is empty (some ESP32s don't advertise name immediately)
+          _discoveredDevices.add(BleDeviceInfo(
+            name: deviceName.isNotEmpty ? deviceName : 'Unknown ID: ${remoteId.substring(0, 4)}',
+            id: remoteId,
+            rssi: result.rssi,
+            serviceUuids: serviceUuids,
+            nativeDevice: result.device,
+          ));
         }
         
         _deviceController.add(List.from(_discoveredDevices));
