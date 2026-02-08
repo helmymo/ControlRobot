@@ -1,0 +1,110 @@
+workflows:
+  ios-sideload-build:
+    name: Sanitized Sideload Build
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+
+    scripts:
+      # Step 1: Install Flutter dependencies
+      - name: Install dependencies
+        script: |
+          flutter pub get
+
+      # Step 2: Pre-Build Fix - Remove Push Notification entitlement (breaks free Apple ID)
+      - name: Remove aps-environment from entitlements
+        script: |
+          ENTITLEMENTS_FILE="ios/Runner/Runner.entitlements"
+          
+          if [ -f "$ENTITLEMENTS_FILE" ]; then
+            echo "Found entitlements file: $ENTITLEMENTS_FILE"
+            echo "Original contents:"
+            cat "$ENTITLEMENTS_FILE"
+            
+            # Remove aps-environment key and its value using PlistBuddy
+            if /usr/libexec/PlistBuddy -c "Print :aps-environment" "$ENTITLEMENTS_FILE" 2>/dev/null; then
+              echo "Removing aps-environment (Push Notification) entitlement..."
+              /usr/libexec/PlistBuddy -c "Delete :aps-environment" "$ENTITLEMENTS_FILE"
+              echo "aps-environment removed successfully."
+            else
+              echo "aps-environment not found, skipping."
+            fi
+            
+            echo "Updated contents:"
+            cat "$ENTITLEMENTS_FILE"
+          else
+            echo "No entitlements file found at $ENTITLEMENTS_FILE"
+          fi
+
+      # Step 3: Verify Info.plist retains Bluetooth and Location permissions
+      - name: Verify Info.plist permissions
+        script: |
+          INFO_PLIST="ios/Runner/Info.plist"
+          
+          echo "Checking Info.plist for required permission strings..."
+          
+          # Check Bluetooth permissions
+          if /usr/libexec/PlistBuddy -c "Print :NSBluetoothAlwaysUsageDescription" "$INFO_PLIST" 2>/dev/null; then
+            echo "✓ NSBluetoothAlwaysUsageDescription found"
+          else
+            echo "⚠ NSBluetoothAlwaysUsageDescription missing"
+          fi
+          
+          if /usr/libexec/PlistBuddy -c "Print :NSBluetoothPeripheralUsageDescription" "$INFO_PLIST" 2>/dev/null; then
+            echo "✓ NSBluetoothPeripheralUsageDescription found"
+          else
+            echo "⚠ NSBluetoothPeripheralUsageDescription missing"
+          fi
+          
+          # Check Location permissions
+          if /usr/libexec/PlistBuddy -c "Print :NSLocationWhenInUseUsageDescription" "$INFO_PLIST" 2>/dev/null; then
+            echo "✓ NSLocationWhenInUseUsageDescription found"
+          else
+            echo "⚠ NSLocationWhenInUseUsageDescription missing"
+          fi
+          
+          if /usr/libexec/PlistBuddy -c "Print :NSLocationAlwaysAndWhenInUseUsageDescription" "$INFO_PLIST" 2>/dev/null; then
+            echo "✓ NSLocationAlwaysAndWhenInUseUsageDescription found"
+          else
+            echo "⚠ NSLocationAlwaysAndWhenInUseUsageDescription missing"
+          fi
+          
+          echo "Info.plist verification complete."
+
+      # Step 4: Build iOS Release (unsigned)
+      - name: Build iOS Release
+        script: |
+          flutter build ios --release --no-codesign
+
+      # Step 5: Post-Build Cleanup - Nuclear cleanup for Sideloadly compatibility
+      - name: Remove PlugIns folder (fixes Sideloadly Guru Meditation crash)
+        script: |
+          rm -rf build/ios/iphoneos/Runner.app/PlugIns
+          echo "PlugIns folder removed."
+
+      - name: Remove Watch folder
+        script: |
+          rm -rf build/ios/iphoneos/Runner.app/Watch
+          echo "Watch folder removed."
+
+      - name: Remove Mac metadata files
+        script: |
+          find build/ios/iphoneos/Runner.app -name "__MACOSX" -type d -exec rm -rf {} + 2>/dev/null || true
+          find build/ios/iphoneos/Runner.app -name ".DS_Store" -type f -delete 2>/dev/null || true
+          find build/ios/iphoneos/Runner.app -name "._*" -type f -delete 2>/dev/null || true
+          echo "Mac metadata files cleaned."
+
+      # Step 6: Package as IPA
+      - name: Create IPA package
+        script: |
+          mkdir -p Payload
+          mv build/ios/iphoneos/Runner.app Payload/
+          zip -r -X app.ipa Payload
+          echo "IPA created successfully with -X flag (stripped Mac attributes)."
+
+    artifacts:
+      - app.ipa
