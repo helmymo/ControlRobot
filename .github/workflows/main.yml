@@ -1,34 +1,78 @@
-name: Build iOS IPA for Sideloading
+name: Build Sanitized IPA
 
 on:
-  workflow_dispatch: # Allows you to run it manually from the Actions tab
+  workflow_dispatch:
   push:
-    branches: [ "main" ]
+    branches: [main]
 
 jobs:
-  build:
+  build-ios:
     runs-on: macos-latest
+    
     steps:
-      - uses: actions/checkout@v4
-      
-      - uses: subosito/flutter-action@v2
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          
-      - run: flutter pub get
-      
-      # 1. Build for Real Device (ARM64) without signing
-      - run: flutter build ios --release --no-codesign
+          cache: true
 
-      # 2. Create the strict Payload structure Sideloadly needs
-      - name: Create IPA
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Clean previous builds
+        run: flutter clean
+
+      - name: Re-install dependencies
+        run: flutter pub get
+
+      # Step 1: Build Release (unsigned)
+      - name: Build iOS Release (no codesign)
+        run: flutter build ios --release --no-codesign
+
+      # Step 2: Nuclear Cleanup - Strip all extension junk
+      - name: Remove PlugIns folder
+        run: rm -rf build/ios/iphoneos/Runner.app/PlugIns
+
+      - name: Remove Watch folder
+        run: rm -rf build/ios/iphoneos/Runner.app/Watch
+
+      - name: Remove broken Flutter framework symlink (if exists)
         run: |
-          mkdir Payload
-          mv build/ios/iphoneos/Runner.app Payload
-          zip -r release.ipa Payload
+          FLUTTER_BINARY="build/ios/iphoneos/Runner.app/Frameworks/Flutter.framework/Flutter"
+          if [ -L "$FLUTTER_BINARY" ] && [ ! -e "$FLUTTER_BINARY" ]; then
+            echo "Removing broken symlink: $FLUTTER_BINARY"
+            rm -f "$FLUTTER_BINARY"
+          else
+            echo "Flutter binary is valid, keeping it."
+          fi
 
-      # 3. Upload the IPA for you to download
-      - uses: actions/upload-artifact@v4
+      # Step 3: Sanitize Metadata - Remove Mac-specific junk that confuses Windows tools
+      - name: Remove __MACOSX folders
+        run: find build/ios/iphoneos/Runner.app -name "__MACOSX" -type d -exec rm -rf {} + 2>/dev/null || true
+
+      - name: Remove .DS_Store files
+        run: find build/ios/iphoneos/Runner.app -name ".DS_Store" -type f -delete 2>/dev/null || true
+
+      - name: Remove ._ resource fork files
+        run: find build/ios/iphoneos/Runner.app -name "._*" -type f -delete 2>/dev/null || true
+
+      # Step 4: Package Correctly
+      - name: Create Payload directory
+        run: mkdir -p Payload
+
+      - name: Move Runner.app to Payload
+        run: mv build/ios/iphoneos/Runner.app Payload/
+
+      - name: Create IPA archive (with -X to strip Mac attributes)
+        run: zip -r -X app.ipa Payload
+
+      # Step 5: Upload Artifact
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: app-release
-          path: release.ipa
+          name: sanitized-ipa
+          path: app.ipa
+          retention-days: 30
