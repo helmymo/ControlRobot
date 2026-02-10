@@ -28,15 +28,24 @@ jobs:
       - name: Re-install dependencies
         run: flutter pub get
 
-      # Step 1: Disable code signing in Xcode project for CI
-      - name: Disable code signing for CI
-        run: |
-          sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer"/CODE_SIGN_IDENTITY = ""/g' ios/Runner.xcodeproj/project.pbxproj
-          sed -i '' 's/\"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]\" = \"iPhone Developer\"/\"CODE_SIGN_IDENTITY[sdk=iphoneos*]\" = \"\"/g' ios/Runner.xcodeproj/project.pbxproj
-
-      # Step 2: Build Release (unsigned)
+      # Step 1: Build using xcodebuild directly (bypasses Flutter's signing validation)
       - name: Build iOS Release (no codesign)
-        run: flutter build ios --release --no-codesign
+        run: |
+          # Generate Flutter build config without building
+          flutter build ios --release --no-codesign --config-only
+          # Build directly with xcodebuild, fully disabling code signing
+          cd ios
+          xcodebuild build \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY='' \
+            CODE_SIGNING_REQUIRED=NO \
+            DEVELOPMENT_TEAM='' \
+            COMPILER_INDEX_STORE_ENABLE=NO | tail -20
 
       # Step 2: Nuclear Cleanup - Strip all extension junk
       - name: Remove PlugIns folder
