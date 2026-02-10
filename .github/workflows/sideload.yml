@@ -46,7 +46,8 @@ jobs:
             CODE_SIGN_IDENTITY='' \
             CODE_SIGNING_REQUIRED=NO \
             DEVELOPMENT_TEAM='' \
-            COMPILER_INDEX_STORE_ENABLE=NO | tail -20
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            CONFIGURATION_BUILD_DIR="$GITHUB_WORKSPACE/build/ios/iphoneos" | tail -20
 
       # Step 3: Nuclear Cleanup - Remove PlugIns and Watch folders
       - name: Remove PlugIns folder (fixes Sideloadly crash)
