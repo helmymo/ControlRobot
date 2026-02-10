@@ -850,7 +850,7 @@ class _CockpitScreenState extends State<CockpitScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'COCKPIT',
+          'CONTROLROBOT',
           style: GoogleFonts.orbitron(
             color: const Color(0xFF00FFFF),
             fontWeight: FontWeight.bold,
