@@ -859,17 +859,6 @@ class _CockpitScreenState extends State<CockpitScreen> {
         ),
         centerTitle: true,
         actions: [
-        actions: [
-          IconButton(
-            icon: Icon(_showTerminal ? Icons.terminal : Icons.terminal_outlined, 
-              color: _showTerminal ? const Color(0xFF39FF14) : Colors.grey),
-            onPressed: () {
-              setState(() {
-                _showTerminal = !_showTerminal;
-              });
-            },
-          ),
-        actions: [
           IconButton(
             icon: Icon(_showTerminal ? Icons.terminal : Icons.terminal_outlined, 
               color: _showTerminal ? const Color(0xFF39FF14) : Colors.grey),
