@@ -28,7 +28,13 @@ jobs:
       - name: Re-install dependencies
         run: flutter pub get
 
-      # Step 1: Build Release (unsigned)
+      # Step 1: Disable code signing in Xcode project for CI
+      - name: Disable code signing for CI
+        run: |
+          sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer"/CODE_SIGN_IDENTITY = ""/g' ios/Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/\"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]\" = \"iPhone Developer\"/\"CODE_SIGN_IDENTITY[sdk=iphoneos*]\" = \"\"/g' ios/Runner.xcodeproj/project.pbxproj
+
+      # Step 2: Build Release (unsigned)
       - name: Build iOS Release (no codesign)
         run: flutter build ios --release --no-codesign
 
